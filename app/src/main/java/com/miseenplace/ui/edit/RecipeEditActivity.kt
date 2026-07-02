@@ -1,21 +1,44 @@
 package com.miseenplace.ui.edit
 
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.widget.*
+import android.widget.ImageView
+import android.widget.Toast
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.lifecycle.lifecycleScope
-import com.miseenplace.R
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.miseenplace.MiseEnPlace
 import com.miseenplace.data.Ingredient
 import com.miseenplace.data.Recipe
 import com.miseenplace.data.Step
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
+import com.miseenplace.ui.theme.MiseEnPlaceTheme
 
 class RecipeEditActivity : AppCompatActivity() {
 
@@ -28,131 +51,245 @@ class RecipeEditActivity : AppCompatActivity() {
     }
 
     private var recipeId: Long = -1
-    private var selectedImageUri: String? = null
-
-    private lateinit var etName: EditText
-    private lateinit var etPersons: EditText
-    private lateinit var etTime: EditText
-    private lateinit var etCategories: EditText
-    private lateinit var imgPreview: ImageView
-    private lateinit var llIngredients: LinearLayout
-    private lateinit var llSteps: LinearLayout
+    private var selectedImageUri by mutableStateOf<String?>(null)
 
     private val imagePicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             selectedImageUri = uri.toString()
-            imgPreview.visibility = View.VISIBLE
-            imgPreview.setImageURI(uri)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_recipe_edit)
 
         recipeId = intent.getLongExtra(EXTRA_RECIPE_ID, -1)
         title = if (recipeId == -1L) "New Recipe" else "Edit Recipe"
 
-        etName = findViewById(R.id.etName)
-        etPersons = findViewById(R.id.etPersons)
-        etTime = findViewById(R.id.etTime)
-        etCategories = findViewById(R.id.etCategories)
-        imgPreview = findViewById(R.id.imgPreview)
-        llIngredients = findViewById(R.id.llIngredients)
-        llSteps = findViewById(R.id.llSteps)
+        if (recipeId != -1L) {
+            viewModel.loadRecipe(recipeId)
+        }
 
-        findViewById<Button>(R.id.btnPickImage).setOnClickListener { imagePicker.launch("image/*") }
-        findViewById<Button>(R.id.btnAddIngredient).setOnClickListener { addIngredientRow() }
-        findViewById<Button>(R.id.btnAddStep).setOnClickListener { addStepRow() }
-        findViewById<Button>(R.id.btnSave).setOnClickListener { save() }
-
-        lifecycleScope.launch {
-            viewModel.uiState.collectLatest { state ->
-                when (state) {
-                    is RecipeEditUiState.Idle -> Unit
-                    is RecipeEditUiState.Loaded -> {
-                        val r = state.details.recipe
-                        etName.setText(r.name)
-                        etPersons.setText(r.persons?.toString() ?: "")
-                        etTime.setText(r.timeMinutes?.toString() ?: "")
-                        etCategories.setText(r.categories)
-                        if (r.imageUri != null) {
-                            selectedImageUri = r.imageUri
-                            imgPreview.visibility = View.VISIBLE
-                            imgPreview.setImageURI(Uri.parse(r.imageUri))
-                        }
-                        llIngredients.removeAllViews()
-                        state.details.ingredients.forEach { addIngredientRow(it.name, it.amount, it.unit) }
-                        llSteps.removeAllViews()
-                        state.details.steps.sortedBy { it.orderIndex }.forEach { addStepRow(it.description) }
-                    }
-                    is RecipeEditUiState.Saved -> finish()
-                    is RecipeEditUiState.Error -> Toast.makeText(this@RecipeEditActivity, state.message, Toast.LENGTH_SHORT).show()
-                }
+        setContent {
+            MiseEnPlaceTheme {
+                RecipeEditScreen(
+                    uiState = viewModel.uiState.collectAsStateWithLifecycle().value,
+                    selectedImageUri = selectedImageUri,
+                    onPickImage = { imagePicker.launch("image/*") },
+                    onSave = { recipe, ingredients, steps -> viewModel.save(recipe, ingredients, steps) },
+                    onSaved = { finish() },
+                    onError = { message ->
+                        Toast.makeText(this@RecipeEditActivity, message, Toast.LENGTH_SHORT).show()
+                    },
+                    recipeId = recipeId,
+                    onImageUriChanged = { selectedImageUri = it }
+                )
             }
         }
-
-        if (recipeId != -1L) viewModel.loadRecipe(recipeId)
     }
+}
 
-    private fun addIngredientRow(name: String = "", amount: String = "", unit: String = "") {
-        val row = LayoutInflater.from(this).inflate(R.layout.item_ingredient_row, llIngredients, false)
-        row.findViewById<EditText>(R.id.etIngName).setText(name)
-        row.findViewById<EditText>(R.id.etIngAmount).setText(amount)
-        row.findViewById<EditText>(R.id.etIngUnit).setText(unit)
-        row.findViewById<Button>(R.id.btnRemoveIng).setOnClickListener { llIngredients.removeView(row) }
-        llIngredients.addView(row)
-    }
+private data class IngredientInput(
+    val name: String = "",
+    val amount: String = "",
+    val unit: String = ""
+)
 
-    private fun addStepRow(description: String = "") {
-        val row = LayoutInflater.from(this).inflate(R.layout.item_step_row, llSteps, false)
-        row.findViewById<EditText>(R.id.etStepDesc).setText(description)
-        row.findViewById<Button>(R.id.btnRemoveStep).setOnClickListener { llSteps.removeView(row) }
-        llSteps.addView(row)
-    }
+private data class StepInput(
+    val description: String = ""
+)
 
-    private fun collectIngredients(recipeId: Long): List<Ingredient> =
-        (0 until llIngredients.childCount).mapNotNull { i ->
-            val row = llIngredients.getChildAt(i)
-            val name = row.findViewById<EditText>(R.id.etIngName).text.toString().trim()
-            if (name.isEmpty()) null
-            else Ingredient(
-                recipeId = recipeId,
-                name = name,
-                amount = row.findViewById<EditText>(R.id.etIngAmount).text.toString().trim(),
-                unit = row.findViewById<EditText>(R.id.etIngUnit).text.toString().trim()
-            )
+@Composable
+private fun RecipeEditScreen(
+    uiState: RecipeEditUiState,
+    selectedImageUri: String?,
+    recipeId: Long,
+    onPickImage: () -> Unit,
+    onSave: (Recipe, List<Ingredient>, List<Step>) -> Unit,
+    onSaved: () -> Unit,
+    onError: (String) -> Unit,
+    onImageUriChanged: (String?) -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var persons by rememberSaveable { mutableStateOf("") }
+    var time by rememberSaveable { mutableStateOf("") }
+    var categories by rememberSaveable { mutableStateOf("") }
+    var nameError by rememberSaveable { mutableStateOf(false) }
+
+    val ingredients = remember { mutableStateListOf<IngredientInput>() }
+    val steps = remember { mutableStateListOf<StepInput>() }
+
+    LaunchedEffect(uiState) {
+        when (uiState) {
+            is RecipeEditUiState.Loaded -> {
+                val recipe = uiState.details.recipe
+                name = recipe.name
+                persons = recipe.persons?.toString() ?: ""
+                time = recipe.timeMinutes?.toString() ?: ""
+                categories = recipe.categories
+                onImageUriChanged(recipe.imageUri)
+                ingredients.clear()
+                ingredients.addAll(
+                    uiState.details.ingredients.map { ing ->
+                        IngredientInput(name = ing.name, amount = ing.amount, unit = ing.unit)
+                    }
+                )
+                steps.clear()
+                steps.addAll(
+                    uiState.details.steps.sortedBy { it.orderIndex }.map { step ->
+                        StepInput(description = step.description)
+                    }
+                )
+            }
+
+            is RecipeEditUiState.Saved -> onSaved()
+            is RecipeEditUiState.Error -> onError(uiState.message)
+            is RecipeEditUiState.Idle -> Unit
         }
+    }
 
-    private fun collectSteps(recipeId: Long): List<Step> =
-        (0 until llSteps.childCount).mapIndexed { i, _ ->
-            val row = llSteps.getChildAt(i)
-            Step(
-                recipeId = recipeId,
-                orderIndex = i,
-                description = row.findViewById<EditText>(R.id.etStepDesc).text.toString().trim()
-            )
-        }.filter { it.description.isNotEmpty() }
-
-    private fun save() {
-        val name = etName.text.toString().trim()
-        if (name.isEmpty()) {
-            etName.error = "Name is required"
-            return
-        }
-
-        val recipe = Recipe(
-            id = if (recipeId == -1L) 0 else recipeId,
-            name = name,
-            persons = etPersons.text.toString().trim().toIntOrNull(),
-            timeMinutes = etTime.text.toString().trim().toIntOrNull(),
-            categories = etCategories.text.toString().trim(),
-            imageUri = selectedImageUri
+    val scroll = rememberScrollState()
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scroll)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = name,
+            onValueChange = {
+                name = it
+                if (it.isNotBlank()) nameError = false
+            },
+            label = { Text("Name") },
+            isError = nameError,
+            supportingText = {
+                if (nameError) {
+                    Text("Name is required")
+                }
+            }
         )
 
-        // recipeId used for collecting child rows; real id is resolved inside the repository
-        val tempId = if (recipeId == -1L) 0L else recipeId
-        viewModel.save(recipe, collectIngredients(tempId), collectSteps(tempId))
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = persons,
+            onValueChange = { persons = it },
+            label = { Text("Persons") }
+        )
+
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = time,
+            onValueChange = { time = it },
+            label = { Text("Time (minutes)") }
+        )
+
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = categories,
+            onValueChange = { categories = it },
+            label = { Text("Categories") }
+        )
+
+        Button(onClick = onPickImage) { Text("Pick image") }
+
+        if (selectedImageUri != null) {
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                factory = { context -> ImageView(context) },
+                update = { imageView -> imageView.setImageURI(Uri.parse(selectedImageUri)) }
+            )
+        }
+
+        Text("Ingredients", style = MaterialTheme.typography.titleMedium)
+        ingredients.forEachIndexed { index, ingredient ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = ingredient.name,
+                    onValueChange = { value ->
+                        ingredients[index] = ingredient.copy(name = value)
+                    },
+                    label = { Text("Name") }
+                )
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = ingredient.amount,
+                    onValueChange = { value ->
+                        ingredients[index] = ingredient.copy(amount = value)
+                    },
+                    label = { Text("Amount") }
+                )
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = ingredient.unit,
+                    onValueChange = { value ->
+                        ingredients[index] = ingredient.copy(unit = value)
+                    },
+                    label = { Text("Unit") }
+                )
+            }
+            Button(onClick = { ingredients.removeAt(index) }) { Text("Remove ingredient") }
+        }
+        Button(onClick = { ingredients.add(IngredientInput()) }) { Text("Add ingredient") }
+
+        Text("Steps", style = MaterialTheme.typography.titleMedium)
+        steps.forEachIndexed { index, step ->
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = step.description,
+                onValueChange = { value ->
+                    steps[index] = step.copy(description = value)
+                },
+                label = { Text("Step ${index + 1}") }
+            )
+            Button(onClick = { steps.removeAt(index) }) { Text("Remove step") }
+        }
+        Button(onClick = { steps.add(StepInput()) }) { Text("Add step") }
+
+        Button(
+            onClick = {
+                if (name.trim().isEmpty()) {
+                    nameError = true
+                    return@Button
+                }
+
+                val targetId = if (recipeId == -1L) 0L else recipeId
+                val recipe = Recipe(
+                    id = targetId,
+                    name = name.trim(),
+                    persons = persons.trim().toIntOrNull(),
+                    timeMinutes = time.trim().toIntOrNull(),
+                    categories = categories.trim(),
+                    imageUri = selectedImageUri
+                )
+                val recipeIngredients = ingredients.mapNotNull { ing ->
+                    val ingredientName = ing.name.trim()
+                    if (ingredientName.isEmpty()) null
+                    else Ingredient(
+                        recipeId = targetId,
+                        name = ingredientName,
+                        amount = ing.amount.trim(),
+                        unit = ing.unit.trim()
+                    )
+                }
+                val recipeSteps = steps.mapIndexedNotNull { index, step ->
+                    val description = step.description.trim()
+                    if (description.isEmpty()) null
+                    else Step(
+                        recipeId = targetId,
+                        orderIndex = index,
+                        description = description
+                    )
+                }
+                onSave(recipe, recipeIngredients, recipeSteps)
+            }
+        ) {
+            Text("Save")
+        }
     }
 }
