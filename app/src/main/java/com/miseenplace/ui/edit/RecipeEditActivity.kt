@@ -10,7 +10,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.miseenplace.R
-import com.miseenplace.RecipeApplication
+import com.miseenplace.MiseEnPlace
 import com.miseenplace.data.Ingredient
 import com.miseenplace.data.Recipe
 import com.miseenplace.data.Step
@@ -24,7 +24,7 @@ class RecipeEditActivity : AppCompatActivity() {
     }
 
     private val viewModel: RecipeEditViewModel by viewModels {
-        RecipeEditViewModel.factory((application as RecipeApplication).repository)
+        RecipeEditViewModel.factory((application as MiseEnPlace).repository)
     }
 
     private var recipeId: Long = -1

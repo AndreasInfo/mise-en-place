@@ -10,7 +10,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.miseenplace.R
-import com.miseenplace.RecipeApplication
+import com.miseenplace.MiseEnPlace
 import com.miseenplace.data.RecipeWithDetails
 import com.miseenplace.ui.edit.RecipeEditActivity
 import kotlinx.coroutines.flow.collectLatest
@@ -23,7 +23,7 @@ class RecipeDetailActivity : AppCompatActivity() {
     }
 
     private val viewModel: RecipeDetailViewModel by viewModels {
-        RecipeDetailViewModel.factory((application as RecipeApplication).repository)
+        RecipeDetailViewModel.factory((application as MiseEnPlace).repository)
     }
 
     private var recipeId: Long = -1

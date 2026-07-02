@@ -10,7 +10,7 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.miseenplace.R
-import com.miseenplace.RecipeApplication
+import com.miseenplace.MiseEnPlace
 import com.miseenplace.ui.detail.RecipeDetailActivity
 import com.miseenplace.ui.edit.RecipeEditActivity
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private val viewModel: RecipeListViewModel by viewModels {
-        RecipeListViewModel.factory((application as RecipeApplication).repository)
+        RecipeListViewModel.factory((application as MiseEnPlace).repository)
     }
 
     private lateinit var adapter: RecipeAdapter
