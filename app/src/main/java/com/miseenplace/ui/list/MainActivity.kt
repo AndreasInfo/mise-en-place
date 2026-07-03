@@ -2,7 +2,6 @@ package com.miseenplace.ui.list
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -23,7 +22,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,16 +47,6 @@ class MainActivity : ComponentActivity() {
         setContent {
             MiseEnPlaceTheme {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
-
-                LaunchedEffect(state) {
-                    if (state is RecipeListUiState.Error) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            (state as RecipeListUiState.Error).message,
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
 
                 RecipeListScreen(
                     state = state,
