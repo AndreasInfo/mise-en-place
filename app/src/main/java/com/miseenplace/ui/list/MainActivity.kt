@@ -3,9 +3,9 @@ package com.miseenplace.ui.list
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,7 +36,7 @@ import com.miseenplace.ui.detail.RecipeDetailActivity
 import com.miseenplace.ui.edit.RecipeEditActivity
 import com.miseenplace.ui.theme.MiseEnPlaceTheme
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
     private val viewModel: RecipeListViewModel by viewModels {
         RecipeListViewModel.factory((application as MiseEnPlace).repository)

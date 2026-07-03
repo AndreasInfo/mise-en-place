@@ -5,10 +5,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -40,7 +40,7 @@ import com.miseenplace.data.Recipe
 import com.miseenplace.data.Step
 import com.miseenplace.ui.theme.MiseEnPlaceTheme
 
-class RecipeEditActivity : AppCompatActivity() {
+class RecipeEditActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_RECIPE_ID = "recipe_id"

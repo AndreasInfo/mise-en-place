@@ -5,10 +5,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.ImageView
 import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.material3.AlertDialog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,9 +22,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -35,7 +39,7 @@ import com.miseenplace.data.RecipeWithDetails
 import com.miseenplace.ui.edit.RecipeEditActivity
 import com.miseenplace.ui.theme.MiseEnPlaceTheme
 
-class RecipeDetailActivity : AppCompatActivity() {
+class RecipeDetailActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_RECIPE_ID = "recipe_id"
@@ -54,6 +58,7 @@ class RecipeDetailActivity : AppCompatActivity() {
 
         setContent {
             MiseEnPlaceTheme {
+                var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
 
                 LaunchedEffect(state) {
@@ -83,8 +88,27 @@ class RecipeDetailActivity : AppCompatActivity() {
                             putExtra(RecipeEditActivity.EXTRA_RECIPE_ID, recipeId)
                         })
                     },
-                    onDelete = { showDeleteDialog() }
+                    onDelete = { showDeleteDialog = true }
                 )
+
+                if (showDeleteDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showDeleteDialog = false },
+                        title = { Text("Delete Recipe") },
+                        text = { Text("Are you sure you want to delete this recipe?") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    showDeleteDialog = false
+                                    viewModel.deleteRecipe(recipeId)
+                                }
+                            ) { Text("Delete") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+                        }
+                    )
+                }
             }
         }
     }
@@ -92,15 +116,6 @@ class RecipeDetailActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.loadRecipe(recipeId)
-    }
-
-    private fun showDeleteDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Delete Recipe")
-            .setMessage("Are you sure you want to delete this recipe?")
-            .setPositiveButton("Delete") { _, _ -> viewModel.deleteRecipe(recipeId) }
-            .setNegativeButton("Cancel", null)
-            .show()
     }
 }
 
