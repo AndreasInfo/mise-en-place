@@ -10,15 +10,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -28,11 +31,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.miseenplace.MiseEnPlace
 import com.miseenplace.data.Ingredient
@@ -99,6 +103,34 @@ private data class StepInput(
     val description: String = ""
 )
 
+private enum class Category(val label: String) {
+    FISH("Fish"),
+    MEAT("Meat"),
+    BREAKFAST("Breakfast"),
+    POTATOES("Potatoes"),
+    CAKE("Cake"),
+    PASTA("Pasta"),
+    SALAD("Salad"),
+    OTHER("Other"),
+    SOUP("Soup"),
+    SUSHI("Sushi"),
+    SWEETS("Sweets"),
+    VEGAN("Vegan"),
+    VEGETARIAN("Vegetarian"),
+    CHRISTMAS("Christmas"),
+}
+
+private fun parseCategories(raw: String): Set<Category> =
+    raw.split(',')
+        .map { it.trim() }
+        .mapNotNull { value ->
+            Category.values().firstOrNull { category ->
+                category.name == value || category.label.equals(value, ignoreCase = true)
+            }
+        }
+        .toSet()
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RecipeEditScreen(
     uiState: RecipeEditUiState,
@@ -113,7 +145,7 @@ private fun RecipeEditScreen(
     var name by rememberSaveable { mutableStateOf("") }
     var persons by rememberSaveable { mutableStateOf("") }
     var time by rememberSaveable { mutableStateOf("") }
-    var categories by rememberSaveable { mutableStateOf("") }
+    var categories by rememberSaveable { mutableStateOf(setOf<Category>()) }
     var nameError by rememberSaveable { mutableStateOf(false) }
 
     val ingredients = remember { mutableStateListOf<IngredientInput>() }
@@ -126,7 +158,7 @@ private fun RecipeEditScreen(
                 name = recipe.name
                 persons = recipe.persons?.toString() ?: ""
                 time = recipe.timeMinutes?.toString() ?: ""
-                categories = recipe.categories
+                categories = parseCategories(recipe.categories)
                 onImageUriChanged(recipe.imageUri)
                 ingredients.clear()
                 ingredients.addAll(
@@ -176,22 +208,37 @@ private fun RecipeEditScreen(
             modifier = Modifier.fillMaxWidth(),
             value = persons,
             onValueChange = { persons = it },
-            label = { Text("Persons") }
+            label = { Text("Persons") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
 
         OutlinedTextField(
             modifier = Modifier.fillMaxWidth(),
             value = time,
             onValueChange = { time = it },
-            label = { Text("Time (minutes)") }
+            label = { Text("Time (minutes)") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
         )
 
-        OutlinedTextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = categories,
-            onValueChange = { categories = it },
-            label = { Text("Categories") }
-        )
+        Text("Categories", style = MaterialTheme.typography.titleMedium)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Category.entries.forEach { category ->
+                FilterChip(
+                    selected = categories.contains(category),
+                    onClick = {
+                        categories = if (categories.contains(category)) {
+                            categories - category
+                        } else {
+                            categories + category
+                        }
+                    },
+                    label = { Text(category.label) }
+                )
+            }
+        }
 
         Button(onClick = onPickImage) { Text("Pick image") }
 
@@ -264,7 +311,7 @@ private fun RecipeEditScreen(
                     name = name.trim(),
                     persons = persons.trim().toIntOrNull(),
                     timeMinutes = time.trim().toIntOrNull(),
-                    categories = categories.trim(),
+                    categories = categories.joinToString(", ") { it.name },
                     imageUri = selectedImageUri
                 )
                 val recipeIngredients = ingredients.mapNotNull { ing ->
